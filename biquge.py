@@ -2,7 +2,7 @@
 import time
 
 from bs4 import BeautifulSoup
-
+import re
 from config import loggerinfo as logger,loggererror
 from novelsearch import parse_search
 from utils.models import Bookchapter, Book
@@ -22,6 +22,10 @@ session1 = session_sql()
 
 content_url = "https://www.biquge.cc/html/372/372982/"
 search_url = "https://sou.xanbhx.com/search?siteid=biqugecc&q={}"
+
+
+def not_empty(s):
+    return s and s.strip()
 
 
 def parse_biquge(url):
@@ -58,7 +62,14 @@ def parse_content(url):
     res = content.text
     index = res.find("chaptererr")
     content = res[0:index]
-    return content
+    s = '<!--divstyle="color:#f00">'
+    tt = content
+    if s in tt:
+        tt = tt[tt.find(s) + len(s):]
+    rr = re.split('\s', tt)
+    rr = filter(not_empty, rr)
+    rr = list(rr)
+    return str(rr)
 
 
 def insert_nove():
@@ -92,3 +103,4 @@ def insert_nove():
 
 
 insert_nove()
+
