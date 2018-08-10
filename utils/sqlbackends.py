@@ -3,7 +3,7 @@
 from contextlib import contextmanager
 from sqlalchemy import create_engine
 from sqlalchemy.orm import sessionmaker
-from utils import logger
+from utils import loggererror as logger
 
 mysql_client = create_engine(
     "mysql+pymysql://zww:msbasic31@" "192.168.188.114:3306/bailutest?charset=utf8",
@@ -21,7 +21,8 @@ def session_scope():
         session.commit()
     except Exception as e:
         session.rollback()
-        logger.error(e)
+        logger.error('there is an error when in session {}'.format(e))
         raise
     finally:
+
         session.close()

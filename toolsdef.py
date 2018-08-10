@@ -1,7 +1,7 @@
 from contextlib import contextmanager
 from sqlalchemy import create_engine
 from sqlalchemy.orm import sessionmaker
-from utils import logger
+from utils import loggerinfo as logger
 import time
 
 mysql_client = create_engine(
@@ -66,4 +66,4 @@ def cate_table():
             #     session.add(b)
 
 
-cate_table()
+# cate_table()

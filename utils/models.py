@@ -63,15 +63,15 @@ class Bookid(Base):
     author_name = Column(String(55))
 
 
-class Book_capter(Base):
+class Bookchapter(Base):
     __tablename__ = 'book_chapter'
     id = Column(Integer, autoincrement=True, primary_key=True)
     book_id = Column(Integer)
-    title = Column(String(55))
+    title = Column(String(128))
     time_created = Column(Integer)
+    total_words = Column(Integer)
     content = Column(Text)
     source_site_index = Column(Integer)
 
 
-
-Base.metadata.create_all(mysql_client)
+# Base.metadata.create_all(mysql_client)

@@ -3,7 +3,7 @@
 from bs4 import BeautifulSoup
 import time
 from utils.models import Book, Author, Bookid, Bookcategory
-from config import logger
+from config import loggerinfo as logger
 from utils.sqlbackends import session_scope
 from utils.session_create import create_session
 from bookapi import charpter_api
@@ -25,11 +25,16 @@ def parse_novel(url):
     session.encode = "utf-8"
     r = session.get(url)
     soup = BeautifulSoup(r.text, "lxml")
-    total_words = soup.find("p", {"class": "sup"}).text.split("|")[-1]
-    if "万字" in total_words:
-        total_words = int(total_words[0:-2]) * 10000
-    else:
-        total_words = total_words[0:-2]
+    try:
+        total_words = soup.find("p", {"class": "sup"}).text.split("|")[-1]
+        if "万字" in total_words:
+            total_words = int(total_words[0:-2]) * 10000
+        else:
+            total_words = total_words[0:-2]
+    except:
+        total_words = 112212
+        logger.error('there is an error when deal the totoal words')
+        pass
     logger.info("the total words is {}".format(total_words))
     res["total_words"] = total_words
     totals = soup.find_all("i", {"class": "value"})
@@ -72,7 +77,7 @@ def parse_cate(url):
         res = parse_novel(novel_url)
         res1 = charpter_api(api_book.format(bookid=cate))
         with session_scope() as sql_session:
-            category_query = sql_session.query(Bookcategory).filter_by(category_name=res1['category']).first()
+            category_query = sql_session.query(Bookcategory).filter_by(category_min=res1['category']).first()
             author_query = (
                 sql_session.query(Book).filter_by(author_name=author_name).first()
             )
@@ -148,7 +153,11 @@ def crawler():
     page = 1
     while page < 51:
         url = url_page.format(page)
-        parse_cate(url)
+        try:
+            parse_cate(url)
+        except Exception as e:
+            logger.error(e, exc_info=True)
+            pass
         page = page + 1
         logger.info("now the page is {}".format(page))
 
@@ -156,7 +165,5 @@ def crawler():
 # parse_cate(url_category)
 # parse_novel(url_novel)
 if __name__ == "__main__":
-    try:
-        crawler()
-    except Exception as e:
-        logger.error(e, exc_info=True)
+    crawler()
+

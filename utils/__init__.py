@@ -1,1 +1,1 @@
-from config import logger
+from config import loggerinfo,loggererror

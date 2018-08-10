@@ -20,7 +20,7 @@ def api(url):
 def charpter_api(url):
     res = {}
     info = api(url)
-    res['category'] = info['minorCateV2']
+    res['category'] = info['minorCate']
     res['wordCount'] = info['wordCount']
     return res
 
@@ -53,5 +53,5 @@ def category(url):
                 yield (item,list(temp))
 
 
-category(_cate)
+# category(_cate)
 # category_cover(cate_url)
