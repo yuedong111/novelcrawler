@@ -66,11 +66,11 @@ class Bookid(Base):
 class Bookchapter(Base):
     __tablename__ = 'book_chapter'
     id = Column(Integer, autoincrement=True, primary_key=True)
-    book_id = Column(Integer)
+    book_id = Column(Integer, index=True)
     title = Column(String(128))
     time_created = Column(Integer)
     total_words = Column(Integer)
-    content = Column(Text)
+    content = Column(Text(length=(2**32)-1))
     source_site_index = Column(Integer)
 
 

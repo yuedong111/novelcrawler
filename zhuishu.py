@@ -2,11 +2,11 @@
 
 from bs4 import BeautifulSoup
 import time
-from utils.models import Book, Author, Bookid, Bookcategory
-from config import loggerinfo as logger
+from utils.models import Book, Author, Bookcategory
+from config import loggerinfo as logger, loggererror
 from utils.sqlbackends import session_scope
 from utils.session_create import create_session
-from bookapi import charpter_api
+from tools.bookapi import charpter_api
 
 url_category = "http://www.zhuishushenqi.com/category"
 url_rank = "http://www.zhuishushenqi.com/ranking"
@@ -33,7 +33,7 @@ def parse_novel(url):
             total_words = total_words[0:-2]
     except:
         total_words = 112212
-        logger.error('there is an error when deal the totoal words')
+        loggererror.error('there is an error when deal the totoal words')
         pass
     logger.info("the total words is {}".format(total_words))
     res["total_words"] = total_words

@@ -1,7 +1,8 @@
+# -*- coding: utf-8 -*-
 from contextlib import contextmanager
 from sqlalchemy import create_engine
 from sqlalchemy.orm import sessionmaker
-from utils import loggerinfo as logger
+from config import loggererror as logger
 import time
 
 mysql_client = create_engine(
@@ -10,7 +11,7 @@ mysql_client = create_engine(
 )
 from utils.sqlbackends import session_scope
 from utils.models import Bookcategory
-from bookapi import category, _cate
+from tools.bookapi import category, _cate
 
 session_sql = sessionmaker(bind=mysql_client)
 
