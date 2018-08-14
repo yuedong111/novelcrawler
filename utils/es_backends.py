@@ -29,14 +29,37 @@ class EsBackends(object):
                 }
             }
         }
-        res = self.es.indices.create(index=self.index_name, body=_index_mappings)
-        if res["acknowledged"] is not True:
-            loggerinfo.info("the index have existed")
+        _index_books = {
+            "mappings": {
+                self.doc_name: {
+                    "properties": {
+                        "title": {
+                            "type": "text",
+                            "index": True,
+                            "analyzer": "ik_max_word",
+                        },
+                        "author": {
+                            "type": "text",
+                            "index": True,
+                            "analyzer": "ik_max_word",
+                        },
+                    }
+                }
+            }
+        }
+        if self.index_name == "crawled_books":
+            res = self.es.indices.create(index="crawled_books", body=_index_books)
+            if res["acknowledged"] is not True:
+                loggerinfo.info("the index have existed")
+        else:
+            res = self.es.indices.create(index=self.index_name, body=_index_mappings)
+            if res["acknowledged"] is not True:
+                loggerinfo.info("the index have existed")
 
     def index_data(self, data):
         try:
             self.es.index(index=self.index_name, doc_type=self.doc_name, body=data)
-            loggerinfo.info("Insert successfully")
+            # loggerinfo.info("Insert successfully")
         except Exception as e:
             loggererror.error("Insert error:{}".format(e))
             pass

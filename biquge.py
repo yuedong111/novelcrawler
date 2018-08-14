@@ -54,44 +54,89 @@ def parse_biquge(url):
 
 
 def parse_content(url):
+    count = 0
     while 1:
         try:
-            r = session.get(url)
+            r = session.get(url, timeout=3)
             break
         except:
             loggererror.error('there is an error on {}'.format(url))
-            continue
-    soup = BeautifulSoup(r.text, "lxml")
-    content = soup.find("div", {"id": "content"})
-    res = content.text
-    index = res.find("chaptererr")
-    content = res[0:index]
-    s = '<!--divstyle="color:#f00">'
-    tt = content
-    if s in tt:
-        tt = tt[tt.find(s) + len(s):]
-    rr = re.split('\s', tt)
-    rr = filter(not_empty, rr)
-    rr = list(rr)
-    if len(rr) == 0:
-        return str(rr)
-    index = -1
-    advertise = "最快更新，无弹窗"
-    adverti = "推荐一款免费小说App"
-    advert = "天才壹秒記住"
-    if len(rr) > 3:
-        for item in rr[-3:]:
-            if advertise in item or adverti in item:
-                index = rr.index(item)
+            count = count + 1
+            if count == 3:
                 break
-        rr = rr[0: index]
-        if advert in rr[0] or 'readx()' in rr[0]:
-            rr = rr[1:]
-        if "热门推荐" in rr[0]:
-            rr = rr[1:]
-    else:
+    if count != 3:
+        soup = BeautifulSoup(r.text, "lxml")
+        content = soup.find("div", {"id": "content"})
+        res = content.text
+        index = res.find("chaptererr")
+        content = res[0:index]
+        s = '<!--divstyle="color:#f00">'
+        tt = content
+        if s in tt:
+            tt = tt[tt.find(s) + len(s):]
+        rr = re.split('\s', tt)
+        rr = filter(not_empty, rr)
+        rr = list(rr)
+        if len(rr) == 0:
+            return str(rr)
+        index = -1
+        advertise = "最快更新，无弹窗"
+        adverti = "推荐一款免费小说App"
+        advert = "天才壹秒記住"
+        if len(rr) > 3:
+            for item in rr[-3:]:
+                if advertise in item or adverti in item:
+                    index = rr.index(item)
+                    break
+            rr = rr[0: index]
+            if advert in rr[0] or 'readx()' in rr[0]:
+                rr = rr[1:]
+            if "热门推荐" in rr[0]:
+                rr = rr[1:]
+        else:
+            return str(rr)
         return str(rr)
-    return str(rr)
+    else:
+        return "can not connect"
+
+
+def deal_ines(itemb, book, index_name):
+    res_list = parse_biquge(itemb[1])
+    i = 1
+    for item in res_list:
+        data = {}
+        url = itemb[1] + item[1]
+        body = {
+            "query": {
+                "match": {
+                    "link": md5(url.encode('utf-8')).hexdigest()
+                }
+            },
+            "_source": ["title", "link"]
+        }
+        result = EsBackends(index_name, "biquge").search_data(body=body)
+        if result["hits"]["total"] == 0:
+            logger.info("the parse url is {}".format(url))
+            content = parse_content(url)
+            bc = Bookchapter(
+                id=None,
+                book_id=book.id,
+                title=item[0],
+                time_created=int(round(time.time())),
+                total_words=len(content),
+                content=content,
+                source_site_index=i,
+            )
+            data['title'] = book.title
+            data['link'] = md5(url.encode('utf-8')).hexdigest()
+            data['date'] = datetime.now().strftime("%Y-%m-%dT%H:%M:%S.000+0800")
+            data['site_name'] = "biquge"
+            data['url'] = url
+            with session_scope() as session:
+                status = session.add(bc)
+                logger.info('the status {}'.format(status))
+            EsBackends(index_name, "biquge").index_data(data)
+            i = i + 1
 
 
 def insert_nove():
@@ -104,44 +149,15 @@ def insert_nove():
             for itemb in resu:
                 if book.title == itemb[0]:
                     logger.info("the book is find {}".format(book.title))
-                    res_list = parse_biquge(itemb[1])
-                    i = 1
-                    for item in res_list:
-                        data = {}
-                        url = itemb[1] + item[1]
-                        body = {
-                            "query": {
-                                "match": {
-                                    "link": md5(url.encode('utf-8')).hexdigest()
-                                }
-                            },
-                            "_source": ["title", "link"]
-                        }
-                        result = EsBackends(index_name, "biquge").search_data(body=body)
-                        if result["hits"]["total"] == 0:
-                            logger.info("the parse url is {}".format(url))
-                            content = parse_content(url)
-                            bc = Bookchapter(
-                                id=None,
-                                book_id=book.id,
-                                title=item[0],
-                                time_created=int(round(time.time())),
-                                total_words=len(content),
-                                content=content,
-                                source_site_index=i,
-                            )
-                            data['title'] = book.title
-                            data['link'] = md5(url.encode('utf-8')).hexdigest()
-                            data['date'] = datetime.now().strftime("%Y-%m-%dT%H:%M:%S.000+0800")
-                            data['site_name'] = "biquge"
-                            data['url'] = url
-                            with session_scope() as session:
-                                status = session.add(bc)
-                                logger.info('the status {}'.format(status))
-                            EsBackends(index_name, "biquge").index_data(data)
-                            i = i + 1
+                    deal_ines(itemb, book, index_name)
         else:
+            resu = parse_search(search_url.format("23uscc", book.title))
+            if resu:
+                for itemb in resu:
+                    if book.title == itemb[0]:
+                        logger.info("in 23uscc the book is find {}".format(book.title))
+                        deal_ines(itemb, book, index_name)
 
 
-
-insert_nove()
+if __name__ == '__main__':
+    insert_nove()

@@ -4,14 +4,16 @@ from sqlalchemy import create_engine
 from sqlalchemy.orm import sessionmaker
 from config import loggererror as logger
 import time
-
+from utils.session_create import create_session
+from bs4 import BeautifulSoup
 mysql_client = create_engine(
     "mysql+pymysql://zww:msbasic31@" "192.168.188.114:3306/bailu?charset=utf8",
     encoding="utf-8",
 )
 from utils.sqlbackends import session_scope
-from utils.models import Bookcategory
+from utils.models import Bookcategory, Book
 from tools.bookapi import category, _cate
+from utils.es_backends import EsBackends
 
 session_sql = sessionmaker(bind=mysql_client)
 
@@ -67,4 +69,47 @@ def cate_table():
             #     session.add(b)
 
 
+def index_es():
+    with session_scope() as session:
+        books = session.query(Book).all()
+        for book in books:
+            data = {}
+            data["title"] = book.title
+            data["author"] = book.author_name
+            EsBackends("crawled_books", "bookinfo").index_data(data)
+            print('the {} is insert'.format(book.title))
+
+
+male = "http://www.zhuishushenqi.com/category?gender=male"
+female = "http://www.zhuishushenqi.com/category?gender=female"
+press = "http://www.zhuishushenqi.com/category?gender=press"
+urls = {
+        "male": male,
+        "female": female,
+        "press": press
+    }
+session = create_session()
+
+
+def zhuishu_category(url, res):
+    temp = {}
+    r = session.get(url)
+    cate = url.split("=")[-1]
+    soup = BeautifulSoup(r.text, 'lxml')
+    divs = soup.find('div', {'class': 'sort-cells'})
+    a = divs.findChildren()
+    for item in a:
+        num = item['href'].split('=')[-1]
+        temp[item.text] = num
+    res[cate] = temp
+
+
+def cate_url():
+    res = {}
+    for item in urls:
+        zhuishu_category(urls[item], res)
+    return res
+
+
 # cate_table()
+# index_es()

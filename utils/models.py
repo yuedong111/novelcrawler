@@ -9,11 +9,11 @@ mysql_client = create_engine(
 )
 
 class Book(Base):
-    __tablename__ = "book_info"
+    __tablename__ = "book"
     id = Column(Integer, autoincrement=True, primary_key=True)
-    author_id = Column(Integer)
-    author_name = Column(String(45))
-    title = Column(String(128))
+    author_id = Column(Integer, index=True)
+    author_name = Column(String(45), index=True)
+    title = Column(String(128), index=True)
     category_id = Column(Integer)
     status = Column(Integer)
     total_words = Column(Integer)
