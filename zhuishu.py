@@ -2,7 +2,7 @@
 
 from bs4 import BeautifulSoup
 import time
-from utils.models import Book, Author, Bookcategory
+from utils.models import Book, Author, BookCategory
 from config import loggerinfo as logger, loggererror
 from utils.sqlbackends import session_scope
 from utils.session_create import create_session
@@ -25,8 +25,13 @@ def parse_novel(url):
     session.encode = "utf-8"
     r = session.get(url)
     soup = BeautifulSoup(r.text, "lxml")
+    temp = soup.find("p", {"class": "sup"}).text.split("|")
+    if temp[1].strip():
+        res["category"] = temp[1]
+    else:
+        res["category"] = 9
     try:
-        total_words = soup.find("p", {"class": "sup"}).text.split("|")[-1]
+        total_words = temp[-1]
         if "万字" in total_words:
             total_words = int(total_words[0:-2]) * 10000
         else:
@@ -58,10 +63,10 @@ def parse_cate(url):
     soup = BeautifulSoup(r.text, "lxml")
     items = soup.find_all("a", {"class": "book"})
     for item in items:
-        title = item.find("img")["alt"]
+        title = item.find("img")["alt"].strip()
         author_name = item.find("p", {"class": "author"}).span.text
-        category = item.find("p", {"class": "author"}).text
-        category = category.strip().split("|")[1].strip()
+        category1 = item.find("p", {"class": "author"}).text
+        category1.strip().split("|")[1].strip()
         description = item.find("p", {"class": "desc"}).text
         cover = item.find("img")["src"]
         if cover:
@@ -69,109 +74,112 @@ def parse_cate(url):
         else:
             has_cover = 0
         time_create = int(time.time())
-        category_id = 1
         status = 1
-        show_out = 1
+        show_out = 0
         total_presents = 0
         total_presents_amount = 0
         novel_url = item["href"]
-        cate = novel_url.split("/")[-1].strip()
-        logger.info("bookid {}".format(cate))
+        site_book_id = novel_url.split("/")[-1].strip()
+        logger.info("bookid {}".format(site_book_id))
         novel_url = url_home + novel_url
-        body = {
-            "query": {
-                "bool": {
-                    "must": {
-                        "match": {"title": title.strip()},
-                        "match": {"author": author_name.strip()},
-                    }
-                }
-            }
-        }
-        search_res = EsBackends("crawled_books", "bookinfo").search_data(body)
-        if search_res["hits"]["total"] == 0 or int(search_res["hits"]["max_score"]) < 8:
-            res = parse_novel(novel_url)
-            res1 = charpter_api(api_book.format(bookid=cate))
-            with session_scope() as sql_session:
+        # body = {
+        #     "query": {
+        #         "bool": {
+        #             "must": {
+        #                 "match": {"title": title.strip()},
+        #                 "match": {"author": author_name.strip()},
+        #             }
+        #         }
+        #     }
+        # }
+        # search_res = EsBackends("crawled_books", "bookinfo").search_data(body)
+        # if search_res["hits"]["total"] == 0 or int(search_res["hits"]["max_score"]) < 8:
+        res = parse_novel(novel_url)
+        # res1 = charpter_api(api_book.format(bookid=cate))
+        with session_scope() as sql_session:
+            category_query = (
+                sql_session.query(BookCategory)
+                .filter_by(category_min=res["category"])
+                .first()
+            )
+            if category_query is None:
                 category_query = (
-                    sql_session.query(Bookcategory)
-                    .filter_by(category_min=res1["category"])
+                    sql_session.query(BookCategory)
+                    .filter_by(category_major=res["category"])
                     .first()
                 )
-                author_query = (
-                    sql_session.query(Book).filter_by(author_name=author_name).first()
+            book_time = (
+                sql_session.query(Book).filter_by(title=title).first()
+            )
+            author_query = (
+                sql_session.query(Author).filter_by(name=author_name).first()
+            )
+            if author_query:
+                author_id = author_query.id
+            else:
+                a = Author(
+                    id=None,
+                    user_id=0,
+                    name=author_name,
+                    has_avator=0,
+                    time_created=time_create,
                 )
-                author_query2 = (
+                sql_session.add(a)
+                author_query3 = (
                     sql_session.query(Author).filter_by(name=author_name).first()
                 )
-                if author_query2:
-                    author_id = author_query2.id
-                else:
-                    a = Author(
-                        id=None,
-                        user_id=0,
-                        name=author_name,
-                        has_avator=0,
-                        time_created=time_create,
-                    )
-                    sql_session.add(a)
-                    author_query3 = (
-                        sql_session.query(Author).filter_by(name=author_name).first()
-                    )
-                    author_id = author_query3.id
-
-                if author_query:
-                    b = Book(
-                        id=None,
-                        author_id=author_id,
-                        author_name=author_name,
-                        title=title,
-                        category_id=category_query.id,
-                        status=status,
-                        total_words=res["total_words"],
-                        total_hits=res["total_hits"],
-                        total_likes=res["total_likes"],
-                        description=description,
-                        has_cover=has_cover,
-                        time_created=time_create,
-                        author_remark="",
-                        show_out=show_out,
-                        vip_chapter_index=25,
-                        total_presents=total_presents,
-                        total_present_amount=total_presents_amount,
-                        sort=0,
-                        time_index=time_create,
-                        site_book_id=cate,
-                    )
-                else:
-                    b = Book(
-                        id=None,
-                        author_id=author_id,
-                        author_name=author_name,
-                        title=title,
-                        category_id=category_id,
-                        status=status,
-                        total_words=res["total_words"],
-                        total_hits=res["total_hits"],
-                        total_likes=res["total_likes"],
-                        description=description,
-                        has_cover=has_cover,
-                        time_created=time_create,
-                        author_remark="",
-                        show_out=show_out,
-                        vip_chapter_index=25,
-                        total_presents=total_presents,
-                        total_present_amount=total_presents_amount,
-                        sort=0,
-                        time_index=time_create,
-                        site_book_id=cate,
-                    )
-                sql_session.add(b)
-                data = {}
-                data["title"] = title.strip()
-                data["author"] = author_name.strip()
-                EsBackends("crawled_books", "bookinfo").index_data(data)
-                print("find a book {}".format(title))
+                author_id = author_query3.id
+            if book_time.time_created:
+                b = Book(
+                    id=None,
+                    author_id=author_id,
+                    author_name=author_name,
+                    title=title,
+                    category_id=category_query.cate_id,
+                    status=status,
+                    total_words=res["total_words"],
+                    total_hits=res["total_hits"],
+                    total_likes=res["total_likes"],
+                    description=description,
+                    has_cover=has_cover,
+                    time_created=book_time.time_created,
+                    time_updated=time_create,
+                    author_remark="",
+                    show_out=show_out,
+                    vip_chapter_index=25,
+                    total_presents=total_presents,
+                    total_present_amount=total_presents_amount,
+                    sort=0,
+                )
+                print(' time update')
+            else:
+                b = Book(
+                    id=None,
+                    author_id=author_id,
+                    author_name=author_name,
+                    title=title,
+                    category_id=category_query.cate_id,
+                    status=status,
+                    total_words=res["total_words"],
+                    total_hits=res["total_hits"],
+                    total_likes=res["total_likes"],
+                    description=description,
+                    has_cover=has_cover,
+                    time_created=time_create,
+                    time_updated=time_create,
+                    author_remark="",
+                    show_out=show_out,
+                    vip_chapter_index=25,
+                    total_presents=total_presents,
+                    total_present_amount=total_presents_amount,
+                    sort=0,
+                )
+            sql_session.add(b)
+            # data = {}
+            # data["title"] = title.strip()
+            # data["author"] = author_name.strip()
+            # EsBackends("crawled_books", "bookinfo").index_data(data)
+            print("find a book {}".format(title))
 
 
 def crawler():
