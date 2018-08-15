@@ -71,4 +71,3 @@ def crawl_book():
 
 
 crawl_book()
-# crawle_book("http://www.anyew.cn/sort-shuku_list/s0/o0/lt0/st0/w0/u0/v0/c0/p2/")

@@ -36,7 +36,7 @@ class Author(Base):
     __tablename__ = "author"
     id = Column(Integer, autoincrement=True, primary_key=True)
     user_id = Column(Integer)
-    name = Column(String(45))
+    name = Column(String(55))
     has_avator = Column(Integer)
     time_created = Column(Integer)
 

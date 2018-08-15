@@ -44,6 +44,9 @@ def parse_novel(url):
         total_likes = int(totals_hits) * float(likes) / 100
         res["total_hits"] = totals_hits
         res["total_likes"] = total_likes
+    else:
+        res["total_hits"] = 0
+        res["total_likes"] = 0
     return res
 
 
@@ -86,7 +89,7 @@ def parse_cate(url):
             }
         }
         search_res = EsBackends("crawled_books", "bookinfo").search_data(body)
-        if search_res["hits"]["total"] == 0:
+        if search_res["hits"]["total"] == 0 or int(search_res["hits"]["max_score"]) < 8:
             res = parse_novel(novel_url)
             res1 = charpter_api(api_book.format(bookid=cate))
             with session_scope() as sql_session:
