@@ -2,7 +2,7 @@
 
 from bs4 import BeautifulSoup
 import time
-from utils.models import Book, Author, BookCategory
+from utils.models import Book, Author, BookCategory, BookSource
 from config import loggerinfo as logger, loggererror
 from utils.sqlbackends import session_scope
 from utils.session_create import create_session
@@ -67,7 +67,7 @@ def parse_cate(url):
         author_name = item.find("p", {"class": "author"}).span.text
         category1 = item.find("p", {"class": "author"}).text
         category1.strip().split("|")[1].strip()
-        description = item.find("p", {"class": "desc"}).text
+        description = item.find("p", {"class": "desc"}).text.strip()
         cover = item.find("img")["src"]
         if cover:
             has_cover = 1
@@ -109,7 +109,7 @@ def parse_cate(url):
                     .first()
                 )
             book_time = (
-                sql_session.query(Book).filter_by(title=title).first()
+                sql_session.query(Book).filter_by(title=title, author_name=author_name).first()
             )
             author_query = (
                 sql_session.query(Author).filter_by(name=author_name).first()
@@ -129,11 +129,12 @@ def parse_cate(url):
                     sql_session.query(Author).filter_by(name=author_name).first()
                 )
                 author_id = author_query3.id
-            if book_time.time_created:
+            if book_time:
+                sql_session.delete(book_time)
                 b = Book(
-                    id=None,
-                    author_id=author_id,
-                    author_name=author_name,
+                    id=book_time.id,
+                    author_id=book_time.author_id,
+                    author_name=book_time.author_name,
                     title=title,
                     category_id=category_query.cate_id,
                     status=status,
@@ -151,7 +152,6 @@ def parse_cate(url):
                     total_present_amount=total_presents_amount,
                     sort=0,
                 )
-                print(' time update')
             else:
                 b = Book(
                     id=None,
@@ -175,6 +175,12 @@ def parse_cate(url):
                     sort=0,
                 )
             sql_session.add(b)
+            bs_query = sql_session.query(BookSource).filter_by(title=title, author_name=author_name).first()
+            if bs_query is None:
+                b_s = BookSource(id=None, title=title, author_name=author_name, site_book_id=site_book_id, last_crawl_time=time_create)
+                sql_session.add(b_s)
+
+
             # data = {}
             # data["title"] = title.strip()
             # data["author"] = author_name.strip()

@@ -6,12 +6,13 @@ from config import loggererror as logger
 import time
 from utils.session_create import create_session
 from bs4 import BeautifulSoup
+
 mysql_client = create_engine(
     "mysql+pymysql://zww:msbasic31@" "192.168.188.114:3306/bailu?charset=utf8",
     encoding="utf-8",
 )
 from utils.sqlbackends import session_scope, session_sql
-from utils.models import Bookcategory, Book, Author
+from utils.models import BookCategory, Book, Author
 from tools.bookapi import category, _cate
 from utils.es_backends import EsBackends
 
@@ -35,9 +36,9 @@ def session_sc():
 def dump_table():
     with session_scope() as session:
         with session_sc() as session1:
-            ss = session1.query(Bookcategory).all()
+            ss = session1.query(BookCategory).all()
             for s1 in ss:
-                d = Bookcategory(
+                d = BookCategory(
                     id=None,
                     category_name=s1.category_name,
                     male_female=s1.male_female,
@@ -55,7 +56,7 @@ def cate_table():
         for items in category(_cate):
             if items[1]:
                 for item in items[1]:
-                    b = Bookcategory(id=None, category_major=item[0], category_min=item[1], male_female=items[0],
+                    b = BookCategory(id=None, category_major=item[0], category_min=item[1], male_female=items[0],
                                      sort=i,
                                      time_created=round(time.time()),
                                      status=1, cover='')
@@ -84,10 +85,10 @@ male = "http://www.zhuishushenqi.com/category?gender=male"
 female = "http://www.zhuishushenqi.com/category?gender=female"
 press = "http://www.zhuishushenqi.com/category?gender=press"
 urls = {
-        "male": male,
-        "female": female,
-        "press": press
-    }
+    "male": male,
+    "female": female,
+    "press": press
+}
 session = create_session()
 
 
@@ -126,14 +127,14 @@ def insert_cate(url):
                 if cate['mins']:
                     for item in cate['mins']:
                         with session_scope() as sqlsession:
-                            bc = Bookcategory(id= None, category_major=cate['major'], category_min=item,
+                            bc = BookCategory(id=None, category_major=cate['major'], category_min=item,
                                               male_female=gene, time_created=round(time.time()),
                                               status=1, cover='', sort=i)
                             sqlsession.add(bc)
                             i = i + 1
                 else:
                     with session_scope() as sqlsession:
-                        bc = Bookcategory(id=None, category_major=cate['major'], category_min="",
+                        bc = BookCategory(id=None, category_major=cate['major'], category_min="",
                                           male_female=gene, time_created=round(time.time()),
                                           status=1, cover='', sort=i)
                         sqlsession.add(bc)
@@ -151,7 +152,8 @@ def merge_author():
                 if a:
                     continue
                 else:
-                    auth = Author(id=None, name=author.name, user_id=author.user_id,has_avator=author.has_avator, time_created=author.time_created)
+                    auth = Author(id=None, name=author.name, user_id=author.user_id, has_avator=author.has_avator,
+                                  time_created=author.time_created)
                     session1.add(auth)
                     print('insert an author {}'.format(author.name))
 
@@ -168,16 +170,12 @@ def deal_author():
                 print(i)
 
 
-
-
-
-
-
-
 url_cate2 = "http://api.zhuishushenqi.com/cats/lv2"
 
 # cate_table()
 # index_es()
 # insert_cate(url_cate2)
-merge_author()
+# merge_author()
 # deal_author()
+if __name__ == '__main__':
+    index_es()

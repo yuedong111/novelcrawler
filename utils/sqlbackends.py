@@ -24,5 +24,4 @@ def session_scope():
         logger.error('there is an error when in session {}'.format(e))
         raise
     finally:
-
         session.close()
