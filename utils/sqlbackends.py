@@ -6,7 +6,7 @@ from sqlalchemy.orm import sessionmaker
 from utils import loggererror as logger
 
 mysql_client = create_engine(
-    "mysql+pymysql://zww:msbasic31@" "192.168.188.114:3306/bailutest?charset=utf8",
+    "mysql+pymysql://zww:msbasic31@" "192.168.188.114:3306/bailu?charset=utf8",
     encoding="utf-8",
 )
 

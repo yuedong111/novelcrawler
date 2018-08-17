@@ -8,7 +8,7 @@ from utils.session_create import create_session
 from bs4 import BeautifulSoup
 
 mysql_client = create_engine(
-    "mysql+pymysql://zww:msbasic31@" "192.168.188.114:3306/bailu?charset=utf8",
+    "mysql+pymysql://zww:msbasic31@" "192.168.188.114:3306/zhuishushenqi?charset=utf8",
     encoding="utf-8",
 )
 from utils.sqlbackends import session_scope, session_sql
@@ -34,20 +34,15 @@ def session_sc():
 
 
 def dump_table():
-    with session_scope() as session:
-        with session_sc() as session1:
-            ss = session1.query(BookCategory).all()
-            for s1 in ss:
-                d = BookCategory(
-                    id=None,
-                    category_name=s1.category_name,
-                    male_female=s1.male_female,
-                    sort=s1.sort,
-                    time_created=s1.time_created,
-                    status=s1.status,
-                    cover=s1.cover,
-                )
-                session.add(d)
+    session1 = session_sql1()
+    ss = session1.query(BookCategory).all()
+    session1.close()
+    for s1 in ss:
+        d = BookCategory(id=s1.id, category_major=s1.category_major,category_min=s1.category_min,
+                         male_female=s1.male_female,sort=s1.sort,time_created=s1.time_created,
+                         status=s1.status,cover=s1.status,cate_id=s1.cate_id)
+        with session_scope() as session2:
+            session2.add(d)
 
 
 def cate_table():
@@ -170,6 +165,36 @@ def deal_author():
                 print(i)
 
 
+def chinese2digits(chinese_str):
+    t = chinese_str
+    if t is None or t.strip() == "":
+        raise Exception("input error for %s" % chinese_str)
+    t = t.strip()
+    t = t.replace("百十", "百一十")
+    common_used_numerals = {'零': 0, '一': 1, '二': 2, '两': 2, '三': 3, '四': 4, '五': 5, '六': 6, '七': 7, '八': 8, '九': 9,
+                            '十': 10, '百': 100, '千': 1000, '万': 10000, '亿': 100000000}
+    total = 0
+    r = 1
+    for i in range(len(t) - 1, -1, -1):
+        val = common_used_numerals.get(t[i])
+        if val is None:
+            raise Exception("%s can not be accepted." % t[i])
+        if val >= 10 and i == 0:
+            if val > r:
+                r = val
+                total = total + val
+            else:
+                r = r * val
+        elif val >= 10:
+            if val > r:
+                r = val
+            else:
+                r = r * val
+        else:
+            total = total + r * val
+    return total
+
+
 url_cate2 = "http://api.zhuishushenqi.com/cats/lv2"
 
 # cate_table()
@@ -177,5 +202,6 @@ url_cate2 = "http://api.zhuishushenqi.com/cats/lv2"
 # insert_cate(url_cate2)
 # merge_author()
 # deal_author()
-if __name__ == '__main__':
-    index_es()
+# dump_table()
+# if __name__ == '__main__':
+#     index_es

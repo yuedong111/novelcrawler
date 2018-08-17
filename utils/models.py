@@ -4,13 +4,13 @@ from sqlalchemy import Column, String, Text, Integer, DateTime, Boolean
 from sqlalchemy import create_engine
 Base = declarative_base()
 mysql_client = create_engine(
-    "mysql+pymysql://zww:msbasic31@" "192.168.188.114:3306/bailutest?charset=utf8",
+    "mysql+pymysql://zww:msbasic31@" "192.168.188.114:3306/bailu?charset=utf8",
     encoding="utf-8",
 )
 
 
 class Book(Base):
-    __tablename__ = "book_info"
+    __tablename__ = "book"
     id = Column(Integer, autoincrement=True, primary_key=True)
     author_id = Column(Integer, index=True)
     author_name = Column(String(45), index=True)
@@ -30,20 +30,20 @@ class Book(Base):
     total_presents = Column(Integer)
     total_present_amount = Column(Integer)
     sort = Column(Integer)
-    time_index = Column(Integer)
+    time_index = Column(Integer, index=True)
 
 
 class Author(Base):
     __tablename__ = "author"
     id = Column(Integer, autoincrement=True, primary_key=True)
-    user_id = Column(Integer)
+    user_id = Column(Integer, index=True)
     name = Column(String(55))
     has_avator = Column(Integer)
     time_created = Column(Integer)
 
 
 class BookCategory(Base):
-    __tablename__ = "book_category"
+    __tablename__ = "book_category_map"
     id = Column(Integer, autoincrement=True, primary_key=True)
     category_major = Column(String(45), comment='大分类')
     category_min = Column(String(45), comment='小分类')
@@ -73,16 +73,19 @@ class Bookchapter(Base):
     time_created = Column(Integer)
     total_words = Column(Integer)
     content = Column(Text(length=(2**32)-1))
-    source_site_index = Column(Integer)
+    source_site_index = Column(Integer, index=True)
 
 
 class BookSource(Base):
-    __tablename__ = 'book_site'
-    id = Column(Integer, primary_key=True, autoincrement=True)
-    title = Column(String(128), index=True)
-    author_name = Column(String(55), index=True)
-    site_book_id = Column(String(32))
+    __tablename__ = 'book_source_site'
+    book_id = Column(Integer, primary_key=True)
+    site_id = Column(Integer, primary_key=True)
+    site_book_id = Column(Integer)
+    site_book_id_ext = Column(Integer)
     last_crawl_time = Column(Integer)
+    status = Column(Integer)
+    last_site_index = Column(Integer)
+    site_bookid = Column(String(32))
 
 
 # Base.metadata.create_all(mysql_client)
