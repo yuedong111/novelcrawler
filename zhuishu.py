@@ -3,13 +3,13 @@
 from bs4 import BeautifulSoup
 import time
 from utils.models import Book, Author, BookCategory, BookSource
-from config import loggerinfo as logger, loggererror
-from utils.sqlbackends import session_scope
+from config import loggerinfo as logger, loggererror, loggerimg
+from utils.sqlbackends import session_scope, session_sql
 from utils.session_create import create_session
 from tools.bookapi import charpter_api
 from toolsdef import cate_url
 from utils.es_backends import EsBackends
-
+from toolsdef import rand_int
 url_category = "http://www.zhuishushenqi.com/category"
 url_rank = "http://www.zhuishushenqi.com/ranking"
 url_novel = "http://www.zhuishushenqi.com/book/5816b415b06d1d32157790b1"
@@ -34,6 +34,8 @@ def parse_novel(url):
         total_words = temp[-1]
         if "万字" in total_words:
             total_words = int(total_words[0:-2]) * 10000
+            if total_words == 0:
+                total_words = 121234
         else:
             total_words = total_words[0:-2]
     except:
@@ -71,6 +73,7 @@ def parse_cate(url):
         cover = item.find("img")["src"]
         if cover:
             has_cover = 1
+            loggerimg.info('the cover {} the title {} the author_name {}'.format(cover,title,author_name))
         else:
             has_cover = 0
         time_create = int(time.time())
@@ -108,15 +111,15 @@ def parse_cate(url):
                     .filter_by(category_major=res["category"])
                     .first()
                 )
-            if category_query is None:
-                category_query = BookCategory()
-                category_query.id = 9
+                if category_query is None:
+                    category_query = BookCategory()
+                    category_query.cate_id = 9
             book_time = (
-                sql_session.query(Book).filter_by(title=title, author_name=author_name).first()
+                sql_session.query(Book)
+                .filter_by(title=title, author_name=author_name)
+                .first()
             )
-            author_query = (
-                sql_session.query(Author).filter_by(name=author_name).first()
-            )
+            author_query = sql_session.query(Author).filter_by(name=author_name).first()
             if author_query:
                 author_id = author_query.id
             else:
@@ -133,29 +136,34 @@ def parse_cate(url):
                 )
                 author_id = author_query3.id
             if book_time:
-                pass
-                # sql_session.delete(book_time)
-                # b = Book(
-                #     id=book_time.id,
-                #     author_id=book_time.author_id,
-                #     author_name=book_time.author_name,
-                #     title=title,
-                #     category_id=category_query.cate_id,
-                #     status=status,
-                #     total_words=res["total_words"],
-                #     total_hits=res["total_hits"],
-                #     total_likes=res["total_likes"],
-                #     description=description,
-                #     has_cover=has_cover,
-                #     time_created=book_time.time_created,
-                #     time_updated=time_create,
-                #     author_remark="",
-                #     show_out=show_out,
-                #     vip_chapter_index=25,
-                #     total_presents=total_presents,
-                #     total_present_amount=total_presents_amount,
-                #     sort=0,
-                # )
+                book_site = sql_session.query(BookSource).filter_by(book_id=book_time.id).first()
+                if book_site and book_site.site_id == 9:
+                    sql_session.delete(book_time)
+                    # sql_session.query(Book).filter_by(id=book_time.id).update({'time_updated':time_create})
+                    b = Book(
+                        id=book_time.id,
+                        author_id=book_time.author_id,
+                        author_name=book_time.author_name,
+                        title=title,
+                        category_id=category_query.cate_id,
+                        status=status,
+                        total_words=res["total_words"],
+                        total_hits=res["total_hits"],
+                        total_likes=res["total_likes"],
+                        description=description,
+                        has_cover=has_cover,
+                        time_created=book_time.time_created,
+                        time_updated=time_create,
+                        author_remark="",
+                        show_out=show_out,
+                        vip_chapter_index=25,
+                        total_presents=total_presents,
+                        total_present_amount=total_presents_amount,
+                        sort=0,
+                        time_index=0,
+                    )
+                    sql_session.add(b)
+                    print('charu chenggong', b.id)
             else:
                 b = Book(
                     id=None,
@@ -177,19 +185,36 @@ def parse_cate(url):
                     total_presents=total_presents,
                     total_present_amount=total_presents_amount,
                     sort=0,
+                    time_index=0,
                 )
                 sql_session.add(b)
-                bs_query = sql_session.query(BookSource).filter_by(title=title, author_name=author_name).first()
+                print('insert a item',b.title)
+                book_q = (
+                    sql_session.query(Book)
+                    .filter_by(title=title, author_id=author_id)
+                    .first()
+                )
+                bs_query = (
+                    sql_session.query(BookSource).filter_by(book_id=book_q.id).first()
+                )
                 if bs_query is None:
-                    b_s = BookSource(id=None, title=title, author_name=author_name, site_bookid=site_book_id, last_crawl_time=time_create)
-                    sql_session.add(b_s)
-
-
-            # data = {}
-            # data["title"] = title.strip()
-            # data["author"] = author_name.strip()
-            # EsBackends("crawled_books", "bookinfo").index_data(data)
-            # print("update a book {}".format(title))
+                    sitebookid = rand_int()
+                    sitebookidext = rand_int()
+                    b_s = BookSource(
+                        book_id=book_q.id,
+                        site_id=9,
+                        site_bookid=site_book_id,
+                        site_book_id=sitebookid,
+                        site_book_id_ext=sitebookidext,
+                        last_crawl_time=time_create,
+                        status=1,
+                        last_site_index=0,
+                    )
+                    temp1 = b_s
+                    with session_scope() as session6:
+                        session6.add(temp1)
+                        print('booksource',temp1.book_id)
+            print("update a book {}".format(title))
 
 
 def crawler():

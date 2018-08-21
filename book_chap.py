@@ -1,14 +1,16 @@
 # -*- coding: utf-8 -*-
 from urllib.parse import quote_plus
-from hashlib import md5
 from time import time
 import re
 from datetime import datetime
+from hashlib import md5
 from utils.session_create import create_phone_session
 from utils.models import BookSource, Book, Bookchapter
 from utils.sqlbackends import session_sql, session_scope
 from utils.es_backends import EsBackends
 from config import loggererror, loggerinfo
+from sqlalchemy.exc import IntegrityError as Integerror
+from pymysql.err import IntegrityError
 
 url_api = "http://chapter2.zhuishushenqi.com/chapter/"
 url_cha = "http://api.zhuishushenqi.com/mix-toc/"
@@ -36,9 +38,12 @@ def get_content(url):
                 loggererror.error("time out {}".format(url))
                 raise e
             continue
-    content = r.json()["chapter"]["body"].split("\n")
+    try:
+        content = r.json()["chapter"]["body"].split("\n")
+    except Exception as e:
+        loggerinfo.info('the content url is {}'.format(url))
+        raise e
     total_words = len(str(content)) - 2
-    content = [item.encode("unicode_escape") for item in content]
     content = str(content)
     return (total_words, content)
 
@@ -48,85 +53,112 @@ def get_chapter(url):
     for chapter in r.json()["mixToc"]["chapters"]:
         title = chapter["title"]
         res = get_content(chapter["link"])
-        yield (title, res)
+        yield (title, res, chapter["link"])
 
 
-def crawler_chapter(book_id):
+def query_book_source():
+    session3 = session_sql()
+    book_info = session3.query(BookSource).filter_by(site_id=9).all()
+    session3.close()
+    for item in book_info:
+        yield item
+
+
+def insert_deal(book_info, url):
+    data = {}
     index_name = "crawled_url"
-    session_query = session_sql()
-    book_info = session_query.query(BookSource).filter_by(id=book_id).first()
-    session_query.close()
-    if book_info:
-        loggerinfo.info('the book title is {}'.format(book_info.title))
-        b_sid = book_info.site_book_id
-        url = url_cha + b_sid
-        data = {}
+    for item in get_chapter(url):
+        title = item[0]
+        total_words = item[1][0]
+        url1 = item[2]
         body = {
-            "query": {"match": {"link": md5(url.encode("utf-8")).hexdigest()}},
+            "query": {"match": {"link": md5(url1.encode("utf-8")).hexdigest()}},
             "_source": ["title", "link"],
         }
+        # body = {
+        #         "query": {
+        #             "bool": {
+        #                 "must": {
+        #                     "match": {"title": title.strip()},
+        #                     "match": {"link": url1},
+        #                 }
+        #             }
+        #         }
+        #     }
         result = EsBackends(index_name, "api_url").search_data(body=body)
-        if result["hits"]["total"] == 0 or int(result["hits"]["max_score"]) < 7:
-            for item in get_chapter(url):
-                title = item[0]
-                total_words = item[1][0]
-                loggerinfo.info('the chapter is {}'.format(title))
-                site_index = re.findall(r"\d+\.?\d*", title)
-                if len(site_index) == 0:
-                    continue
-                site_index = site_index[0]
-                content = item[1][1]
-                with session_scope() as session1:
-                    session_query1 = session_sql()
-                    b = (
-                        session_query1.query(Book)
-                        .filter_by(
-                            title=book_info.title, author_name=book_info.author_name
-                        )
-                        .first()
-                    )
-                    b_c = Bookchapter(
-                        id=None,
-                        book_id=b.id,
-                        title=title,
-                        time_created=int(time()),
-                        total_words=total_words,
-                        content=content,
-                        source_site_index=site_index,
-                    )
-                    session_query1.close()
+        if result["hits"]["total"] == 0 or float(result["hits"]["max_score"]) < 8:
+            loggerinfo.info('the max score is {}'.format(result["hits"]["max_score"]))
+            loggerinfo.info('the chapter is {}'.format(title))
+            site_index = re.findall(r"\d+\.?\d*", title)
+            if len(site_index) == 0:
+                continue
+            site_index = site_index[0]
+            content = item[1][1]
+            with session_scope() as session1:
+                b_c = Bookchapter(
+                    id=None,
+                    book_id=book_info.book_id,
+                    title=title,
+                    time_created=int(time()),
+                    total_words=total_words,
+                    content=content,
+                    source_site_index=site_index,
+                )
+                try:
                     session1.add(b_c)
-                    data['title'] = title
-                    data['link'] = md5(url.encode('utf-8')).hexdigest()
-                    data['date'] = datetime.now().strftime("%Y-%m-%dT%H:%M:%S.000+0800")
-                    data['site_name'] = "biquge"
-                    data['url'] = url
-                    EsBackends(index_name, "api_url").index_data(data)
-                    book = session1.query(Book).filter_by(id=b.id).first()
-                    if book:
-                        session1.delete(book)
-                        b = Book(
-                            id=book.id,
-                            author_id=book.author_id,
-                            author_name=book.author_name,
-                            title=book.title,
-                            category_id=book.category_id,
-                            status=book.status,
-                            total_words=book.total_words,
-                            total_hits=book.total_hits,
-                            total_likes=book.total_likes,
-                            description=book.description,
-                            has_cover=book.has_cover,
-                            time_created=book.time_created,
-                            author_remark=book.author_remark,
-                            show_out=book.show_out,
-                            vip_chapter_index=book.vip_chapter_index,
-                            total_presents=book.total_presents,
-                            total_present_amount=book.total_present_amount,
-                            sort=book.sort,
-                            time_index=0,
-                        )
-                        session1.add(b)
+                    ll = session1.query(BookSource).filter_by(book_id=book_info.book_id).first()
+                    session1.delete(ll)
+                    ll.last_site_index = site_index
+                    session1.add(ll)
+                except IntegrityError:
+                    loggererror.error('the duplicate id {}'.format(site_index))
+                    continue
+                except Integerror:
+                    continue
+                data['title'] = title
+                data['link'] = md5(url1.encode("utf-8")).hexdigest()
+                data['date'] = datetime.now().strftime("%Y-%m-%dT%H:%M:%S.000+0800")
+                data['site_name'] = "zhuishushenqi"
+                EsBackends(index_name, "api_url").index_data(data)
+                book = session1.query(Book).filter_by(id=book_info.book_id).first()
+                if book:
+                    session1.delete(book)
+                    b = Book(
+                        id=book.id,
+                        author_id=book.author_id,
+                        author_name=book.author_name,
+                        title=book.title,
+                        category_id=book.category_id,
+                        status=1,
+                        total_words=book.total_words,
+                        total_hits=book.total_hits,
+                        total_likes=book.total_likes,
+                        description=book.description,
+                        has_cover=book.has_cover,
+                        time_created=book.time_created,
+                        author_remark=book.author_remark,
+                        show_out=book.show_out,
+                        vip_chapter_index=book.vip_chapter_index,
+                        total_presents=book.total_presents,
+                        total_present_amount=book.total_present_amount,
+                        sort=book.sort,
+                        time_index=0,
+                    )
+                    session1.add(b)
+
+
+def crawler_chapter():
+    for book_info in query_book_source():
+        if book_info:
+            loggerinfo.info('the book id is {}'.format(book_info.book_id))
+            b_sid = book_info.site_bookid
+            url = url_cha + b_sid
+            try:
+                insert_deal(book_info, url)
+            except Exception as e:
+                loggererror.error(url)
+                loggererror.error(e)1
+
 
 
 def gen_iter():
@@ -137,5 +169,4 @@ def gen_iter():
 
 
 if __name__ == "__main__":
-    for i in gen_iter():
-        crawler_chapter(i)
+    crawler_chapter()

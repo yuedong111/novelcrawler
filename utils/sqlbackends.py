@@ -21,7 +21,7 @@ def session_scope():
         session.commit()
     except Exception as e:
         session.rollback()
-        logger.error('there is an error when in session {}'.format(e))
+        logger.error('there is an error when in session {}'.format(e), exc_info=True)
         raise
     finally:
         session.close()

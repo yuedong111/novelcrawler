@@ -88,4 +88,25 @@ class BookSource(Base):
     site_bookid = Column(String(32))
 
 
+class BookRecommend(Base):
+    __tablename__ = 'zs_promotion'
+    id = Column(Integer, autoincrement=True, primary_key=True)
+    category_id = Column(Integer)
+    book_id = Column(Integer)
+    time_created = Column(Integer)
+    sort = Column(Integer)
+
+
+class BookRencommend_cate(Base):
+    __tablename__ = 'zs_promotion_category'
+    id = Column(Integer, autoincrement=True, primary_key=True)
+    name = Column(String(50))
+    status = Column(Integer)
+    time_created = Column(Integer)
+    sort = Column(Integer)
+
+
+
+
+
 # Base.metadata.create_all(mysql_client)

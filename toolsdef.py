@@ -4,15 +4,15 @@ from sqlalchemy import create_engine
 from sqlalchemy.orm import sessionmaker
 from config import loggererror as logger
 import time
-from utils.session_create import create_session
+from utils.session_create import create_session, create_phone_session
 from bs4 import BeautifulSoup
-
+from random import choice
 mysql_client = create_engine(
-    "mysql+pymysql://zww:msbasic31@" "192.168.188.114:3306/zhuishushenqi?charset=utf8",
+    "mysql+pymysql://zww:msbasic31@" "192.168.188.114:3306/bailu?charset=utf8",
     encoding="utf-8",
 )
 from utils.sqlbackends import session_scope, session_sql
-from utils.models import BookCategory, Book, Author
+from utils.models import BookCategory, Book, Author, BookSource, Bookchapter
 from tools.bookapi import category, _cate
 from utils.es_backends import EsBackends
 
@@ -195,9 +195,42 @@ def chinese2digits(chinese_str):
     return total
 
 
-url_cate2 = "http://api.zhuishushenqi.com/cats/lv2"
+def rand_int():
+    num = "123456789"
+    res = ""
+    for i in range(9):
+        res = res + choice(num)
+    return int(res)
 
+
+def delete_book_id():
+    session1 = session_sql()
+    books = session1.query(BookSource).filter_by(site_id=9).all()
+    session1.close()
+    for book in books:
+        session2 = session_sql()
+        bs = session2.query(Bookchapter).filter_by(book_id=book.book_id).all()
+        books = session2.query(Book).filter_by(id=book.book_id).all()
+        session2.close()
+        for b_chapter in bs:
+            if b:
+                with session_scope() as session3:
+                    session3.delete(b_chapter)
+                    print('delete ', b.book_id)
+        for book in books:
+            if book:
+                with session_scope() as session4:
+                    session4.delete(book)
+                    print('delete book', book.id)
+
+
+
+# url_cate2 = "http://api.zhuishushenqi.com/cats/lv2"
+# url_api = "http://api.zhuishushenqi.com/toc?view=summary&book=53f5a98056f543f653a87cb3"
+# # r = create_phone_session().get(url_api)
+# # print(r.text)
 # cate_table()
+# delete_book_id()
 # index_es()
 # insert_cate(url_cate2)
 # merge_author()

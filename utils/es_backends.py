@@ -24,7 +24,6 @@ class EsBackends(object):
                         "link": {"type": "text", "index": True, "analyzer": "standard"},
                         "date": {"type": "text", "index": True},
                         "site_name": {"type": "text", "index": True},
-                        "url": {"type": "text"},
                     }
                 }
             }
