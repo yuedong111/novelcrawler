@@ -73,7 +73,7 @@ def parse_cate(url):
         cover = item.find("img")["src"]
         if cover:
             has_cover = 1
-            loggerimg.info('the cover {} the title {} the author_name {}'.format(cover,title,author_name))
+            loggerimg.info(' |{}|{}|{}'.format(cover,title,author_name))
         else:
             has_cover = 0
         time_create = int(time.time())
@@ -138,32 +138,7 @@ def parse_cate(url):
             if book_time:
                 book_site = sql_session.query(BookSource).filter_by(book_id=book_time.id).first()
                 if book_site and book_site.site_id == 9:
-                    sql_session.delete(book_time)
-                    # sql_session.query(Book).filter_by(id=book_time.id).update({'time_updated':time_create})
-                    b = Book(
-                        id=book_time.id,
-                        author_id=book_time.author_id,
-                        author_name=book_time.author_name,
-                        title=title,
-                        category_id=category_query.cate_id,
-                        status=status,
-                        total_words=res["total_words"],
-                        total_hits=res["total_hits"],
-                        total_likes=res["total_likes"],
-                        description=description,
-                        has_cover=has_cover,
-                        time_created=book_time.time_created,
-                        time_updated=time_create,
-                        author_remark="",
-                        show_out=show_out,
-                        vip_chapter_index=25,
-                        total_presents=total_presents,
-                        total_present_amount=total_presents_amount,
-                        sort=0,
-                        time_index=0,
-                    )
-                    sql_session.add(b)
-                    print('charu chenggong', b.id)
+                    sql_session.query(Book).filter(Book.id == book_time.id).update({'time_updated': time_create})
             else:
                 b = Book(
                     id=None,
