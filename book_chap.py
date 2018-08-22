@@ -1,11 +1,15 @@
 # -*- coding: utf-8 -*-
 from __future__ import print_function
-from urllib import quote_plus
+try:
+    from urllib import quote_plus
+except:
+    from urllib.parse import quote_plus
 from time import time
 import re
+from random import randint
 from datetime import datetime
 from hashlib import md5
-from utils.session_create import create_phone_session
+from utils.session_create import create_phone_session, create_session, USER_AGENTS
 from utils.models import BookSource, Book, Bookchapter
 from utils.sqlbackends import session_sql, session_scope
 from utils.es_backends import EsBackends
@@ -16,6 +20,7 @@ from pymysql.err import IntegrityError
 url_api = "http://chapter2.zhuishushenqi.com/chapter/"
 url_cha = "http://api.zhuishushenqi.com/mix-toc/"
 phone_session = create_phone_session()
+phone_session1 = create_session()
 
 
 def to_unicode(string):
@@ -42,7 +47,7 @@ def get_content(url):
     try:
         content = r.json()["chapter"]["body"].split("\n")
     except Exception as e:
-        loggerinfo.info('the content url is {}'.format(url))
+        loggerinfo.info("the content url is {}".format(url))
         raise e
     total_words = len(str(content)) - 2
     content = str(content)
@@ -50,8 +55,19 @@ def get_content(url):
 
 
 def get_chapter(url):
-    r = phone_session.get(url)
-    for chapter in r.json()["mixToc"]["chapters"]:
+    chpters = []
+    count = 9
+    while count:
+        try:
+            r = phone_session1.get(url)
+            chpters = r.json()["mixToc"]["chapters"]
+            break
+        except:
+            count = count - 1
+            ind = randint(0, 18)
+            phone_session1.headers["User-Agent"] = USER_AGENTS[ind]
+
+    for chapter in chpters:
         title = chapter["title"]
         res = get_content(chapter["link"])
         yield (title, res, chapter["link"])
@@ -70,7 +86,7 @@ def insert_deal(book_info, url):
     index_name = "crawled_url"
     for item in get_chapter(url):
         title = item[0]
-        total_words = item[1][0]
+        total_words = int(item[1][0])
         url1 = item[2]
         body = {
             "query": {"match": {"link": md5(url1.encode("utf-8")).hexdigest()}},
@@ -88,8 +104,8 @@ def insert_deal(book_info, url):
         #     }
         result = EsBackends(index_name, "api_url").search_data(body=body)
         if result["hits"]["total"] == 0 or float(result["hits"]["max_score"]) < 8:
-            loggerinfo.info('the max score is {}'.format(result["hits"]["max_score"]))
-            loggerinfo.info('the chapter is {}'.format(title))
+            loggerinfo.info("the max score is {}".format(result["hits"]["max_score"]))
+            loggerinfo.info(u"the chapter is {}".format(title))
             site_index = re.findall(r"\d+\.?\d*", title)
             if len(site_index) == 0:
                 continue
@@ -105,36 +121,39 @@ def insert_deal(book_info, url):
                     content=content,
                     source_site_index=site_index,
                 )
+
                 try:
-                    session1.query(BookSource).filter(BookSource.book_id==book_info.book_id).update({"last_site_index": site]})
-                except IntegrityError:
-                    loggererror.error('the duplicate id {}'.format(site_index))
-                    continue
+                    session1.add(b_c)
+                    session1.query(BookSource).filter(
+                        BookSource.book_id == book_info.book_id
+                    ).update({"last_site_index": site_index})
                 except Integerror:
+                    loggererror.error("the duplicate id {}".format(site_index))
                     continue
-                data['title'] = title
-                data['link'] = md5(url1.encode("utf-8")).hexdigest()
-                data['date'] = datetime.now().strftime("%Y-%m-%dT%H:%M:%S.000+0800")
-                data['site_name'] = "zhuishushenqi"
+                data["title"] = title
+                data["link"] = md5(url1.encode("utf-8")).hexdigest()
+                data["date"] = datetime.now().strftime("%Y-%m-%dT%H:%M:%S.000+0800")
+                data["site_name"] = "zhuishushenqi"
                 EsBackends(index_name, "api_url").index_data(data)
                 book = session1.query(Book).filter_by(id=book_info.book_id).first()
                 if book:
-                    session1.query(Book).filter(Book.id==book_info.book_id).update({"time_index": 0})
-
+                    book_words = book.total_words + total_words
+                    session1.query(Book).filter(Book.id == book_info.book_id).update(
+                        {"time_index": 0, "total_words": book_words}
+                    )
 
 
 def crawler_chapter():
     for book_info in query_book_source():
         if book_info:
-            loggerinfo.info('the book id is {}'.format(book_info.book_id))
+            loggerinfo.info("the book id is {}".format(book_info.book_id))
             b_sid = book_info.site_bookid
             url = url_cha + b_sid
             try:
                 insert_deal(book_info, url)
             except Exception as e:
-                loggererror.error('the error {}'.format(url))
-                loggererror.error(e)
-
+                loggererror.error("the error {}".format(url))
+                loggererror.error(e, exc_info=True)
 
 
 def gen_iter():
