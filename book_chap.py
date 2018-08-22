@@ -1,5 +1,6 @@
 # -*- coding: utf-8 -*-
-from urllib.parse import quote_plus
+from __future__ import print_function
+from urllib import quote_plus
 from time import time
 import re
 from datetime import datetime
@@ -105,11 +106,7 @@ def insert_deal(book_info, url):
                     source_site_index=site_index,
                 )
                 try:
-                    session1.add(b_c)
-                    ll = session1.query(BookSource).filter_by(book_id=book_info.book_id).first()
-                    session1.delete(ll)
-                    ll.last_site_index = site_index
-                    session1.add(ll)
+                    session1.query(BookSource).filter(BookSource.book_id==book_info.book_id).update({"last_site_index": site]})
                 except IntegrityError:
                     loggererror.error('the duplicate id {}'.format(site_index))
                     continue
@@ -122,29 +119,8 @@ def insert_deal(book_info, url):
                 EsBackends(index_name, "api_url").index_data(data)
                 book = session1.query(Book).filter_by(id=book_info.book_id).first()
                 if book:
-                    session1.delete(book)
-                    b = Book(
-                        id=book.id,
-                        author_id=book.author_id,
-                        author_name=book.author_name,
-                        title=book.title,
-                        category_id=book.category_id,
-                        status=1,
-                        total_words=book.total_words,
-                        total_hits=book.total_hits,
-                        total_likes=book.total_likes,
-                        description=book.description,
-                        has_cover=book.has_cover,
-                        time_created=book.time_created,
-                        author_remark=book.author_remark,
-                        show_out=book.show_out,
-                        vip_chapter_index=book.vip_chapter_index,
-                        total_presents=book.total_presents,
-                        total_present_amount=book.total_present_amount,
-                        sort=book.sort,
-                        time_index=0,
-                    )
-                    session1.add(b)
+                    session1.query(Book).filter(Book.id==book_info.book_id).update({"time_index": 0})
+
 
 
 def crawler_chapter():
@@ -156,8 +132,8 @@ def crawler_chapter():
             try:
                 insert_deal(book_info, url)
             except Exception as e:
-                loggererror.error(url)
-                loggererror.error(e)1
+                loggererror.error('the error {}'.format(url))
+                loggererror.error(e)
 
 
 
