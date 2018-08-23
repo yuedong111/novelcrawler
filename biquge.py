@@ -1,6 +1,6 @@
 # -*- coding: utf-8 -*-
 import time
-
+from __future__ import print_function
 from bs4 import BeautifulSoup
 import re
 from config import loggerinfo as logger, loggererror
@@ -148,14 +148,14 @@ def insert_nove():
         if resu:
             for itemb in resu:
                 if book.title == itemb[0]:
-                    logger.info("the book is find {}".format(book.title))
+                    logger.info(u"the book is find {}".format(book.title))
                     deal_ines(itemb, book, index_name)
         else:
             resu = parse_search(search_url.format("23uscc", book.title))
             if resu:
                 for itemb in resu:
                     if book.title == itemb[0]:
-                        logger.info("in 23uscc the book is find {}".format(book.title))
+                        logger.info(u"in 23uscc the book is find {}".format(book.title))
                         deal_ines(itemb, book, index_name)
 
 

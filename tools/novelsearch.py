@@ -1,4 +1,5 @@
 # -*- coding: utf-8 -*-
+from __future__ import print_function
 from utils.session_create import create_session
 from bs4 import BeautifulSoup
 import time

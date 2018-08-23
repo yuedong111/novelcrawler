@@ -1,4 +1,5 @@
 # -*- coding: utf-8 -*-
+from __future__ import print_function
 from contextlib import contextmanager
 from sqlalchemy import create_engine
 from sqlalchemy.orm import sessionmaker
@@ -12,7 +13,7 @@ mysql_client = create_engine(
     encoding="utf-8",
 )
 from utils.sqlbackends import session_scope, session_sql
-from utils.models import BookCategory, Book, Author, BookSource, Bookchapter
+from utils.models import BookCategory, Book, Author, BookSource, Bookchapter, BookCate
 from tools.bookapi import category, _cate
 from utils.es_backends import EsBackends
 
@@ -203,25 +204,43 @@ def rand_int():
     return int(res)
 
 
+def incre_table():
+    res = cate_url()
+    cc = 1
+    rr = 15
+    for item in res.keys():
+        for dd in res[item].keys():
+            with session_scope() as session:
+                d = BookCategory(id=cc, category_name=dd, site_id=9, site_category_id=cc,category_id=rr)
+                session.add(d)
+                cc = cc + 1
+                rr = rr + 1
+
+
 def delete_book_id():
     session1 = session_sql()
     books = session1.query(BookSource).filter_by(site_id=9).all()
+    # session1.execute()
     session1.close()
     for book in books:
         session2 = session_sql()
-        bs = session2.query(Bookchapter).filter_by(book_id=book.book_id).all()
-        books = session2.query(Book).filter_by(id=book.book_id).all()
+        # session2.query(Bookchapter).filter(Bookchapter.book_id == book.book_id).delete(synchronize_session=False)
+        bs = session2.query(Bookchapter).filter_by(id=book.book_id).all()
+        session2.commit()
+        books1 = session2.query(Book).filter_by(id=book.book_id).all()
         session2.close()
         for b_chapter in bs:
-            if b:
+            if b_chapter:
                 with session_scope() as session3:
                     session3.delete(b_chapter)
-                    print('delete ', b.book_id)
-        for book in books:
-            if book:
+                    print('delete ', b_chapter.title)
+        for book1 in books1:
+            if book1:
                 with session_scope() as session4:
-                    session4.delete(book)
-                    print('delete book', book.id)
+                    session4.delete(book1)
+                    print('delete book', book1.id)
+        with session_scope() as session5:
+            session5.delete(book)
 
 
 
@@ -238,3 +257,5 @@ def delete_book_id():
 # dump_table()
 # if __name__ == '__main__':
 #     index_es
+
+

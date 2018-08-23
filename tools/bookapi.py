@@ -1,6 +1,9 @@
 # -*- coding: utf-8 -*-
 from tools import create_session
-from urllib.parse import unquote
+try:
+    from urllib import unquote
+except:
+    from urllib.parse import unquote
 from itertools import product
 url_api = 'http://api.zhuishushenqi.com/mix-atoc/59196481cad7b547270f6e93?view=chapters'
 api_book = 'http://api.zhuishushenqi.com/book/{bookid}'

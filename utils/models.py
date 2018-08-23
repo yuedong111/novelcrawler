@@ -24,6 +24,7 @@ class Book(Base):
     has_cover = Column(Integer)
     time_created = Column(Integer)
     time_updated = Column(Integer)
+    total_hot = Column(Integer)
     author_remark = Column(String(128))
     show_out = Column(Integer)
     vip_chapter_index = Column(Integer)
@@ -45,14 +46,10 @@ class Author(Base):
 class BookCategory(Base):
     __tablename__ = "book_category_map"
     id = Column(Integer, autoincrement=True, primary_key=True)
-    category_major = Column(String(45), comment='大分类')
-    category_min = Column(String(45), comment='小分类')
-    male_female = Column(String(30))
-    sort = Column(Integer)
-    time_created = Column(Integer)
-    status = Column(Integer)
-    cover = Column(String(1025))
-    cate_id = Column(Integer)
+    category_name = Column(String(45))
+    category_id = Column(Integer)
+    site_id = Column(Integer)
+    site_category_id = Column(Integer)
 
 
 class BookId(Base):
@@ -88,25 +85,33 @@ class BookSource(Base):
     site_bookid = Column(String(32))
 
 
-class BookRecommend(Base):
+class BookCate(Base):
+    __tablename__ = 'book_category'
+    id = Column(Integer, autoincrement=True, primary_key=True)
+    category_name = Column(String(50))
+    male_female = Column(String(50))
+    sort = Column(Integer)
+    time_created = Column(Integer)
+    status = Column(Integer)
+    cover = Column(String(1025))
+
+
+class ZsPromotion(Base):
     __tablename__ = 'zs_promotion'
     id = Column(Integer, autoincrement=True, primary_key=True)
     category_id = Column(Integer)
     book_id = Column(Integer)
+    sort = Column(Integer, index=True)
     time_created = Column(Integer)
-    sort = Column(Integer)
 
 
-class BookRencommend_cate(Base):
+class ZsPromotionCategory(Base):
     __tablename__ = 'zs_promotion_category'
     id = Column(Integer, autoincrement=True, primary_key=True)
     name = Column(String(50))
     status = Column(Integer)
-    time_created = Column(Integer)
     sort = Column(Integer)
-
-
-
+    time_created = Column(Integer)
 
 
 # Base.metadata.create_all(mysql_client)

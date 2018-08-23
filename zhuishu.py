@@ -1,8 +1,8 @@
 # -*- coding: utf-8 -*-
-
+from __future__ import print_function
 from bs4 import BeautifulSoup
 import time
-from utils.models import Book, Author, BookCategory, BookSource
+from utils.models import Book, Author, BookCategory, BookSource, BookCate
 from config import loggerinfo as logger, loggererror, loggerimg
 from utils.sqlbackends import session_scope, session_sql
 from utils.session_create import create_session
@@ -10,11 +10,13 @@ from tools.bookapi import charpter_api
 from toolsdef import cate_url
 from utils.es_backends import EsBackends
 from toolsdef import rand_int
+
 url_category = "http://www.zhuishushenqi.com/category"
 url_rank = "http://www.zhuishushenqi.com/ranking"
 url_novel = "http://www.zhuishushenqi.com/book/5816b415b06d1d32157790b1"
 url_home = "http://www.zhuishushenqi.com"
 url_page = "http://www.zhuishushenqi.com/category?gender={0}&type=hot&major={1}&minor=&page={2}"
+temp_page = "http://www.zhuishushenqi.com/category?gender={0}&type=hot&major={1}"
 api_book = "http://api.zhuishushenqi.com/book/{bookid}"
 
 
@@ -35,12 +37,12 @@ def parse_novel(url):
         if "万字" in total_words:
             total_words = int(total_words[0:-2]) * 10000
             if total_words == 0:
-                total_words = 121234
+                total_words = 0
         else:
             total_words = total_words[0:-2]
     except:
-        total_words = 112212
-        loggererror.error("there is an error when deal the totoal words")
+        total_words = 0
+        # loggererror.error("there is an error when deal the totoal words")
         pass
     logger.info("the total words is {}".format(total_words))
     res["total_words"] = total_words
@@ -57,7 +59,8 @@ def parse_novel(url):
     return res
 
 
-def parse_cate(url):
+def parse_cate(url, total_item, cate_name):
+    total_items = total_item
     logger.info("the url is {}".format(url))
     session = create_session()
     session.encode = "utf-8"
@@ -73,7 +76,7 @@ def parse_cate(url):
         cover = item.find("img")["src"]
         if cover:
             has_cover = 1
-            loggerimg.info(' |{}|{}|{}'.format(cover,title,author_name))
+            loggerimg.info(u" |{}|{}|{}".format(cover, title, author_name))
         else:
             has_cover = 0
         time_create = int(time.time())
@@ -102,18 +105,12 @@ def parse_cate(url):
         with session_scope() as sql_session:
             category_query = (
                 sql_session.query(BookCategory)
-                .filter_by(category_min=res["category"])
+                .filter_by(category_name=cate_name)
                 .first()
             )
             if category_query is None:
-                category_query = (
-                    sql_session.query(BookCategory)
-                    .filter_by(category_major=res["category"])
-                    .first()
-                )
-                if category_query is None:
-                    category_query = BookCategory()
-                    category_query.cate_id = 9
+                category_query = BookCategory()
+                category_query.category_id = 9
             book_time = (
                 sql_session.query(Book)
                 .filter_by(title=title, author_name=author_name)
@@ -136,22 +133,30 @@ def parse_cate(url):
                 )
                 author_id = author_query3.id
             if book_time:
-                book_site = sql_session.query(BookSource).filter_by(book_id=book_time.id).first()
+                book_site = (
+                    sql_session.query(BookSource)
+                    .filter_by(book_id=book_time.id)
+                    .first()
+                )
                 if book_site and book_site.site_id == 9:
-                    sql_session.query(Book).filter(Book.id == book_time.id).update({'time_updated': time_create})
+                    sql_session.query(Book).filter(Book.id == book_time.id).update(
+                        {"time_updated": time_create, "total_hot": total_items, "category_id": category_query.category_id}
+                    )
+
             else:
                 b = Book(
                     id=None,
                     author_id=author_id,
                     author_name=author_name,
                     title=title,
-                    category_id=category_query.cate_id,
+                    category_id=category_query.category_id,
                     status=status,
-                    total_words=res["total_words"],
+                    total_words=0,
                     total_hits=res["total_hits"],
                     total_likes=res["total_likes"],
                     description=description,
-                    has_cover=has_cover,
+                    has_cover=0,
+                    total_hot= total_items,
                     time_created=time_create,
                     time_updated=time_create,
                     author_remark="",
@@ -163,7 +168,7 @@ def parse_cate(url):
                     time_index=0,
                 )
                 sql_session.add(b)
-                print('insert a item',b.title)
+                print(u"insert a item", b.title)
                 book_q = (
                     sql_session.query(Book)
                     .filter_by(title=title, author_id=author_id)
@@ -185,27 +190,42 @@ def parse_cate(url):
                         status=1,
                         last_site_index=0,
                     )
-                    temp1 = b_s
-                    with session_scope() as session6:
-                        session6.add(temp1)
-                        print('booksource',temp1.book_id)
-            print("update a book {}".format(title))
+                    # temp1 = b_s
+                    # with session_scope() as session6:
+                    #     session6.add(temp1)
+                    sql_session.add(b_s)
+                    print("booksource", b_s.book_id)
+            print(u"update a book {}".format(title))
+        total_items = total_items - 1
+
 
 
 def crawler():
+    session = create_session()
     res = cate_url()
-    for cate in res.keys():
-        for item in res[cate].keys():
+    for item in res.keys():
+        for majar in res[item].keys():
+            url = temp_page.format(item, res[item][majar])
+            r = session.get(url)
+            soup = BeautifulSoup(r.text, 'lxml')
+            page1 = soup.find('span', {'class': 'c-gold'})
+            pages = int(page1.text)
             page = 1
-            while page < 51:
-                url = url_page.format(cate, res[cate][item], page)
+            total = pages * 20
+            if pages > 50:
+                pages = 50
+            while page < pages+1:
+                url = url_page.format(item, res[item][majar], page)
                 try:
-                    parse_cate(url)
+                    parse_cate(url, total, majar)
                 except Exception as e:
                     logger.error(e, exc_info=True)
                     pass
                 page = page + 1
+                total = total - 20
                 logger.info("now the page is {}".format(page))
+
+
 
 
 # parse_cate(url_category)

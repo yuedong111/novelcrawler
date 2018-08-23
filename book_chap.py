@@ -1,5 +1,6 @@
 # -*- coding: utf-8 -*-
 from __future__ import print_function
+
 try:
     from urllib import quote_plus
 except:
@@ -15,7 +16,6 @@ from utils.sqlbackends import session_sql, session_scope
 from utils.es_backends import EsBackends
 from config import loggererror, loggerinfo
 from sqlalchemy.exc import IntegrityError as Integerror
-from pymysql.err import IntegrityError
 
 url_api = "http://chapter2.zhuishushenqi.com/chapter/"
 url_cha = "http://api.zhuishushenqi.com/mix-toc/"
@@ -32,7 +32,7 @@ def to_unicode(string):
 
 
 def get_content(url):
-    c_u = url_api + quote_plus(url)
+    c_u = url_api + quote_plus(url.encode("utf8"))
     count = 0
     while 1:
         try:
@@ -106,24 +106,44 @@ def insert_deal(book_info, url):
         if result["hits"]["total"] == 0 or float(result["hits"]["max_score"]) < 8:
             loggerinfo.info("the max score is {}".format(result["hits"]["max_score"]))
             loggerinfo.info(u"the chapter is {}".format(title))
-            site_index = re.findall(r"\d+\.?\d*", title)
-            if len(site_index) == 0:
-                continue
-            site_index = site_index[0]
+            # site_index = re.findall(r"\d+\.?\d*", title)
+            # if len(site_index) == 0:
+            #     continue
+            # site_index = site_index[0]
             content = item[1][1]
             with session_scope() as session1:
-                b_c = Bookchapter(
-                    id=None,
-                    book_id=book_info.book_id,
-                    title=title,
-                    time_created=int(time()),
-                    total_words=total_words,
-                    content=content,
-                    source_site_index=site_index,
+                bcq = (
+                    session1.query(Bookchapter)
+                    .filter_by(book_id=book_info.book_id)
+                    .order_by(Bookchapter.source_site_index.desc())
+                    .first()
                 )
+                if bcq:
+                    b_c = Bookchapter(
+                        id=None,
+                        book_id=book_info.book_id,
+                        title=title,
+                        time_created=int(time()),
+                        total_words=total_words,
+                        content=content,
+                        source_site_index=bcq.source_site_index + 1,
+                    )
+                    site_index = bcq.source_site_index + 1
+                    session1.add(b_c)
+                else:
+                    b_c = Bookchapter(
+                        id=None,
+                        book_id=book_info.book_id,
+                        title=title,
+                        time_created=int(time()),
+                        total_words=total_words,
+                        content=content,
+                        source_site_index=1,
+                    )
+                    site_index = 1
+                    session1.add(b_c)
 
                 try:
-                    session1.add(b_c)
                     session1.query(BookSource).filter(
                         BookSource.book_id == book_info.book_id
                     ).update({"last_site_index": site_index})
