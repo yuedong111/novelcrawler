@@ -66,3 +66,24 @@ class EsBackends(object):
     def search_data(self, body):
         res = self.es.search(index=self.index_name, doc_type=self.doc_name, body=body)
         return res
+
+
+def es_search(index, url):
+    es = EsBackends(index)
+    body = {
+            "query": {
+                "bool": {
+                    "must": {
+                        "match": {"link": url},
+                        # "match": {"status": 1}
+                    }
+                }
+            }
+        }
+    res = es.search_data(body)
+    if res.get("hits").get("hits"):
+        for item in res.get("hits").get("hits"):
+            if url.strip() == item.get("_source").get("link").strip():
+                status = item.get("_source").get("status")
+                return True, status, item.get("_id")
+    return False, 0, None
