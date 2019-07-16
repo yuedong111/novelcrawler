@@ -71,15 +71,19 @@ class EsBackends(object):
 def es_search(index, url):
     es = EsBackends(index)
     body = {
-            "query": {
-                "bool": {
-                    "must": {
-                        "match": {"link": url},
-                        # "match": {"status": 1}
-                    }
-                }
+        "query": {
+            "multi_match": {
+                "query": url,
+                "type": "phrase",
+                "slop": 0,
+                "fields": [
+                    "link"
+                ],
+                # "analyzer": "charSplit",
+                "max_expansions": 1
             }
         }
+    }
     res = es.search_data(body)
     if res.get("hits").get("hits"):
         for item in res.get("hits").get("hits"):
